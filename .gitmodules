@@ -1,0 +1,15 @@
+[submodule "upstream/after-effects-mcp"]
+	path = upstream/after-effects-mcp
+	url = https://github.com/Dakkshin/after-effects-mcp.git
+[submodule "upstream/mcp-aftereffects"]
+	path = upstream/mcp-aftereffects
+	url = https://github.com/kumoproductions/mcp-aftereffects.git
+[submodule "upstream/Adobe_Premiere_Pro_MCP"]
+	path = upstream/Adobe_Premiere_Pro_MCP
+	url = https://github.com/hetpatel-11/Adobe_Premiere_Pro_MCP.git
+[submodule "upstream/photoshop-mcp"]
+	path = upstream/photoshop-mcp
+	url = https://github.com/alisaitteke/photoshop-mcp.git
+[submodule "upstream/illustrator-mcp-server"]
+	path = upstream/illustrator-mcp-server
+	url = https://github.com/ie3jp/illustrator-mcp-server.git

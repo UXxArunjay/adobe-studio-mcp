@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionList>
+  <Extension Id="com.adobestudiomcp.hub.panel"><HostList><Host Name="AEFT" Port="8091"/><Host Name="PPRO" Port="8092"/><Host Name="PHXS" Port="8093"/><Host Name="ILST" Port="8094"/></HostList></Extension>
+</ExtensionList>
