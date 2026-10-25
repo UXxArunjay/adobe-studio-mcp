@@ -1,0 +1,13 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+const c = new Client({ name: 'smoke', version: '1' });
+await c.connect(new StdioClientTransport({ command: process.execPath, args: ['dist/index.js'], env: { ...process.env, ADOBE_MCP_MODE: process.env.ADOBE_MCP_MODE || 'compact' } }));
+const { tools } = await c.listTools();
+console.log('tools:', tools.length, 'schema bytes:', JSON.stringify(tools).length);
+const st = await c.callTool({ name: 'adobe_status', arguments: {} });
+console.log('adobe_status:', st.content[0].text.slice(0, 300));
+const bad = await c.callTool({ name: 'ae_setKeyframe', arguments: { layer: 1 } });
+console.log('validation:', bad.isError, bad.content[0].text.slice(0, 160));
+const lib = await c.callTool({ name: 'adobe_catalog_libraries', arguments: {} });
+console.log('libraries:', lib.content[0].text.slice(0, 400));
+await c.close();

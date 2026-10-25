@@ -1,0 +1,44 @@
+{
+  "name": "adobe-studio-mcp",
+  "version": "1.0.0",
+  "description": "One open-source MCP server for After Effects, Premiere Pro, Photoshop and Illustrator — native tools, cross-app Dynamic Link/BridgeTalk workflows, app launching, plus every tool of the best community Adobe MCPs through one hub.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "adobe-studio-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "setup:upstream": "node scripts/setup-upstream.mjs",
+    "catalog": "node scripts/build-catalog.mjs",
+    "check:jsx": "node scripts/check-jsx.mjs",
+    "test": "node scripts/check-jsx.mjs && node scripts/smoke.mjs",
+    "docs": "node scripts/gen-docs.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "adobe",
+    "after-effects",
+    "premiere-pro",
+    "photoshop",
+    "illustrator",
+    "extendscript",
+    "claude"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "zod": "^3.25.0",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "acorn": "^8.15.0",
+    "typescript": "^5.9.0"
+  }
+}
