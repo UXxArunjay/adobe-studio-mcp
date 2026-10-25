@@ -35,6 +35,12 @@ tool({ name: 'adobe_status', toolset: 'adobe', readOnly: true,
 
 async function waitScriptable(app: AppId, timeoutMs: number) {
   const end = Date.now() + timeoutMs;
+  // After Effects: never fire AfterFX -r while AE is still booting ("Scripting plugin is not installed" dialog).
+  // Wait for the hub first; only fall back to -r after AE had plenty of time to finish loading.
+  if (app === 'ae') {
+    const hubEnd = Math.min(end, Date.now() + 120000);
+    while (Date.now() < hubEnd) { if (hubHeartbeat('ae')) break; await sleep(2000); }
+  }
   while (Date.now() < end) {
     if (await availableTransport(app)) {
       try { const r = await runJsxResult(app, 'return app.version;', {}, { prelude: false, timeoutMs: 15000 }); if (r.ok) return String(r.result); } catch { /* still booting */ }

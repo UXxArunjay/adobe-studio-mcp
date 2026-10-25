@@ -96,7 +96,7 @@ jsxTool({ name: 'ae_addCamera', toolset: 'ae', app: 'ae', undo: true,
 var opt = cam.property('ADBE Camera Options Group');
 if (ARGS.focalLength) { var filmW = 36; opt.property('ADBE Camera Zoom').setValue(c.width * ARGS.focalLength / filmW); }
 if (ARGS.oneNode) cam.autoOrient = AutoOrientType.NO_AUTO_ORIENT;
-if (ARGS.position) cam.transform.position.setValue(ARGS.position); if (ARGS.pointOfInterest && !ARGS.oneNode) cam.transform.pointOfInterest.setValue(ARGS.pointOfInterest);
+var zoomV = opt.property('ADBE Camera Zoom').value; cam.transform.position.setValue(ARGS.position || [c.width / 2, c.height / 2, -zoomV]); if (!ARGS.oneNode) cam.transform.pointOfInterest.setValue([c.width / 2, c.height / 2, 0]); if (ARGS.pointOfInterest && !ARGS.oneNode) cam.transform.pointOfInterest.setValue(ARGS.pointOfInterest);
 if (ARGS.depthOfField) { opt.property('ADBE Camera Depth of Field').setValue(1); if (ARGS.focusDistance) opt.property('ADBE Camera Focus Distance').setValue(ARGS.focusDistance); if (ARGS.aperture) opt.property('ADBE Camera Aperture').setValue(ARGS.aperture); if (ARGS.blurLevel) opt.property('ADBE Camera Blur Level').setValue(ARGS.blurLevel); }
 return __linfo(cam, false);` });
 
