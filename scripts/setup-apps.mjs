@@ -28,13 +28,21 @@ for (const i of findInstalls('ae')) {
   try { mkdirSync(dst, { recursive: true }); copyFileSync(ae1, join(dst, 'mcp-bridge-auto.jsx')); console.log('ae1 bridge panel →', dst); }
   catch (e) { console.log(`ae1 bridge panel: copy needs admin (${e.code}). Optional — ae2 + native AE tools need no panel.`); }
 }
-// Claude Desktop config (only with --claude)
+// Claude Desktop config (only with --claude). Newer Windows builds keep it in %LOCALAPPDATA%\Claude-Data\claude_*\ — update every copy found.
 if (process.argv.includes('--claude')) {
-  const cfgPath = process.platform === 'win32' ? join(process.env.APPDATA, 'Claude', 'claude_desktop_config.json') : join(process.env.HOME, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
-  let cfg = {}; if (existsSync(cfgPath)) { copyFileSync(cfgPath, cfgPath + '.bak-adobe-studio'); cfg = JSON.parse(readFileSync(cfgPath, 'utf8')); }
-  cfg.mcpServers = cfg.mcpServers || {};
-  cfg.mcpServers['adobe-studio'] = { command: process.execPath, args: [join(root, 'dist', 'index.js')], env: { ADOBE_MCP_MODE: 'compact' } };
-  mkdirSync(dirname(cfgPath), { recursive: true }); writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
-  console.log('Claude Desktop config updated:', cfgPath, '(backup .bak-adobe-studio). Restart Claude Desktop.');
+  const paths = [];
+  if (process.platform === 'win32') {
+    paths.push(join(process.env.APPDATA, 'Claude', 'claude_desktop_config.json'));
+    const cd = join(process.env.LOCALAPPDATA || '', 'Claude-Data');
+    try { for (const d of readdirSync(cd)) { const f = join(cd, d, 'claude_desktop_config.json'); if (existsSync(f)) paths.push(f); } } catch { /* none */ }
+  } else paths.push(join(process.env.HOME, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'));
+  for (const cfgPath of paths) {
+    let cfg = {}; if (existsSync(cfgPath)) { copyFileSync(cfgPath, cfgPath + '.bak-adobe-studio'); cfg = JSON.parse(readFileSync(cfgPath, 'utf8')); }
+    cfg.mcpServers = cfg.mcpServers || {};
+    cfg.mcpServers['adobe-studio'] = { command: process.execPath, args: [join(root, 'dist', 'index.js').replace(/\\/g, '/')], env: { ADOBE_MCP_MODE: 'compact' } };
+    mkdirSync(dirname(cfgPath), { recursive: true }); writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+    console.log('Claude Desktop config updated:', cfgPath, '(backup .bak-adobe-studio)');
+  }
+  console.log('Fully quit Claude Desktop (tray icon > Quit) and reopen it.');
 }
 process.exit(0);
