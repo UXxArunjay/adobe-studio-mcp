@@ -106,4 +106,4 @@ Download only media you own or are licensed to use (your own uploads, Creative C
 
 ## License
 
-MIT © 2026 Arunjay (i Arunjay) and contributors.
+MIT © 2026 Arunjay Patel.
