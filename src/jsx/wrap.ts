@@ -63,6 +63,9 @@ export function wrapJsx(app: AppId, body: string, args: unknown, opts: WrapOptio
   const pre = opts.prelude === false ? '' : PRELUDE[app] || '';
   const undoOpen = app === 'ae' && opts.undo ? `app.beginUndoGroup(${JSON.stringify(opts.undo)});` : '';
   const undoClose = app === 'ae' && opts.undo ? `try { app.endUndoGroup(); } catch (__u) {}` : '';
+  // AE: suppress warning dialogs raised by the script itself, so no modal is left open that blocks the next call
+  const dlgOpen = app === 'ae' ? 'try { app.beginSuppressDialogs(); } catch (__d) {}' : '';
+  const dlgClose = app === 'ae' ? 'try { app.endSuppressDialogs(false); } catch (__d2) {}' : '';
   const src = `(function () {
 ${STRINGIFY}
 var __out = ${JSON.stringify(out)};
@@ -70,6 +73,7 @@ var __res;
 ${pre}
 var ARGS = ${JSON.stringify(args ?? {})};
 ${undoOpen}
+${dlgOpen}
 try {
   var __v = (function () {
 ${body}
@@ -79,6 +83,7 @@ ${body}
   __res = '{"ok":false,"error":' + __s(String((e && e.message) || e)) + ',"line":' + __s(e && e.line) + '}';
 } finally {
   ${undoClose}
+  ${dlgClose}
   ${app === 'ps' && opts.prelude !== false ? 'try { app.preferences.rulerUnits = __oldUnits; } catch (__ru) {}' : ''}
 }
 if (__out) { try { var __f = new File(__out); __f.encoding = 'UTF-8'; __f.open('w'); __f.write(__res); __f.close(); } catch (__w) {} }

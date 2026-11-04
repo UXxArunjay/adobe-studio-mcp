@@ -81,7 +81,8 @@ async function viaHub(app: AppId, code: string, timeout: number): Promise<string
   await fs.writeFile(tmp, JSON.stringify({ id, code }), 'utf8');
   await fs.rename(tmp, join(dir, 'in', `${id}.json`));
   const outPath = join(dir, 'out', `${id}.json`);
-  const res = await waitFile(outPath, timeout, async () => !!hubHeartbeat(app));
+  // alive = app process running (a busy host stops the heartbeat but will still serve the job)
+  const res = await waitFile(outPath, timeout, async () => !!hubHeartbeat(app) || (await isRunning(app)));
   await fs.rm(outPath, { force: true }).catch(() => undefined);
   if (res === null) {
     await fs.rm(join(dir, 'in', `${id}.json`), { force: true }).catch(() => undefined);
@@ -143,11 +144,19 @@ async function viaOsa(app: AppId, code: string, timeout: number): Promise<string
 
 export type TransportName = 'hub' | 'com' | 'afterfx' | 'osascript';
 
+/** true when the CEP hub has ever run for this app (heartbeat file exists) */
+export function hubInstalled(app: AppId): boolean {
+  return existsSync(join(HUB_DIR, app, 'heartbeat.json'));
+}
+
 export async function availableTransport(app: AppId): Promise<TransportName | null> {
   if (hubHeartbeat(app)) return 'hub';
   if (!(await isRunning(app))) return null;
   if (IS_WIN && (app === 'ps' || app === 'ai')) return 'com';
-  if (IS_WIN && app === 'ae') return 'afterfx';
+  // After Effects: NEVER fall back to "AfterFX.exe -r" when the hub is installed. A stale heartbeat only means AE is
+  // busy (long script/render) or still booting; -r at that moment pops "Cannot run a script while a modal dialog is
+  // waiting for response". Queue on the hub instead — it picks the job up as soon as AE is free.
+  if (IS_WIN && app === 'ae') return (hubInstalled('ae') && process.env.ADOBE_MCP_AE_ALLOW_AFTERFX !== '1') ? 'hub' : 'afterfx';
   if (IS_MAC && (app === 'ps' || app === 'ai' || app === 'ae')) return 'osascript';
   return null;
 }
