@@ -305,8 +305,11 @@ jsxTool({ name: 'ae_essentialGraphics', toolset: 'ae', app: 'ae', undo: true,
   description: 'After Effects: add properties to the Essential Graphics panel ({layer, property, name?}[]), set template name, and/or export the comp as a .mogrt for Premiere.',
   input: { compositionName: zComp, templateName: z.string().optional(), add: z.array(z.object({ layer: zLayer, property: z.string(), name: z.string().optional() })).optional(), exportPath: z.string().optional() },
   jsx: R`var c = __comp(ARGS.compositionName); if (ARGS.templateName) c.motionGraphicsTemplateName = ARGS.templateName; var added = [];
-if (ARGS.add) for (var i = 0; i < ARGS.add.length; i++) { var a = ARGS.add[i]; var p = __prop(__layer(c, a.layer), a.property); var ok = a.name ? p.addToMotionGraphicsTemplateAs(c, a.name) : p.addToMotionGraphicsTemplate(c); added.push({ property: p.name, ok: ok }); }
-var exp = null; if (ARGS.exportPath) exp = c.exportAsMotionGraphicsTemplate(true, ARGS.exportPath);
+// skip controllers that are already published (re-adding them on every call duplicated the Essential Graphics panel)
+var have = {}; try { for (var h = 0; h < c.motionGraphicsTemplateControllerCount; h++) have[c.getMotionGraphicsTemplateControllerName(h)] = true; } catch (eh) {}
+if (ARGS.add) for (var i = 0; i < ARGS.add.length; i++) { var a = ARGS.add[i]; if (a.name && have[a.name]) { added.push({ property: a.name, ok: true, existing: true }); continue; } var p = __prop(__layer(c, a.layer), a.property); var ok = a.name ? p.addToMotionGraphicsTemplateAs(c, a.name) : p.addToMotionGraphicsTemplate(c); added.push({ property: p.name, ok: ok }); }
+// suppress modal warnings (e.g. "fonts were not synced from Adobe") so an unattended export never blocks waiting for a click
+var exp = null; if (ARGS.exportPath) { app.beginSuppressDialogs(); try { exp = c.exportAsMotionGraphicsTemplate(true, ARGS.exportPath); } finally { app.endSuppressDialogs(false); } }
 return { comp: c.name, templateName: c.motionGraphicsTemplateName, added: added, exported: exp };` });
 
 jsxTool({ name: 'ae_purgeMemory', toolset: 'ae', app: 'ae',

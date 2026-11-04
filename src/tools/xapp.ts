@@ -10,6 +10,8 @@ import { imageResult } from './util.js';
 
 const zApp = z.enum(['ae', 'pr', 'ps', 'ai']);
 const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+/** .mogrt files already exported in this server session (comp|path) — placed again without re-exporting. */
+const mogrtCache = new Set<string>();
 
 tool({ name: 'xapp_bridgeTalk', toolset: 'xapp',
   description: 'BridgeTalk: from one running Adobe app, send ExtendScript to another (targets: aftereffects, premierepro, photoshop, illustrator, ame, bridge, indesign... optionally versioned "photoshop-27.0") and wait for its result — Adobe\'s native inter-app messaging. Useful when the target has no direct connection.',
@@ -115,10 +117,19 @@ tool({ name: 'xapp_toPremiere', toolset: 'xapp',
 tool({ name: 'xapp_mogrtToPremiere', toolset: 'xapp',
   description: 'After Effects → Premiere via Motion Graphics template: publish chosen AE properties to Essential Graphics, export the comp as .mogrt, and place it in Premiere with text overrides — editable titles/lower-thirds in the edit.',
   input: { compositionName: z.string(), templateName: z.string().optional(), properties: z.array(z.object({ layer: z.union([z.string(), z.number()]), property: z.string(), name: z.string().optional() })).optional(),
-    sequence: z.string().optional(), track: z.string().optional(), time: z.number().optional(), texts: z.record(z.string()).optional() },
+    sequence: z.string().optional(), track: z.string().optional(), time: z.number().optional(), texts: z.record(z.string()).optional(),
+    reexport: z.boolean().optional().describe('force a fresh .mogrt export (after changing the AE comp); otherwise the template exported earlier in this session is reused') },
   handler: async (a, ctx) => {
-    const path = join(mediaDir('mogrt'), `${(a.templateName || a.compositionName).replace(/[^\w-]+/g, '_')}.mogrt`);
-    const ae = await ctx.call('ae_essentialGraphics', { compositionName: a.compositionName, templateName: a.templateName || a.compositionName, add: a.properties, exportPath: path });
+    // AE's exportAsMotionGraphicsTemplate treats its path as a FOLDER and writes "<template name>.mogrt" inside it,
+    // so give it a per-template folder and point Premiere at the file AE actually writes.
+    const tpl = a.templateName || a.compositionName;
+    const dir = join(mediaDir('mogrt'), tpl.replace(/[^\w-]+/g, '_'));
+    const path = join(dir, `${tpl}.mogrt`);
+    // export each template ONCE per server session and reuse it for every placement (re-exporting re-triggered AE's font dialog every time)
+    const key = `${a.compositionName}|${path}`;
+    let ae: any = { reused: true };
+    if (a.reexport || !mogrtCache.has(key) || !existsSync(path)) { ae = await ctx.call('ae_essentialGraphics', { compositionName: a.compositionName, templateName: tpl, add: a.properties, exportPath: dir }); mogrtCache.add(key);
+      if (!existsSync(path)) throw new Error(`AE export did not produce ${path}`); }
     const pr = await ctx.call('pr_addGraphic', { path, sequence: a.sequence, track: a.track || 'V2', time: a.time ?? 0, texts: a.texts });
     return { mogrt: path, ae, pr };
   } });

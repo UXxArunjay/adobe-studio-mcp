@@ -65,7 +65,10 @@ jsxTool({ name: 'pr_createSequence', toolset: 'pr', app: 'pr',
   jsx: R`var s = null;
 if (ARGS.clips && ARGS.clips.length) { var items = []; for (var i = 0; i < ARGS.clips.length; i++) { var it = __findItem(ARGS.clips[i]); if (!it) throw new Error('Project item not found: ' + ARGS.clips[i]); items.push(it); } s = ARGS.bin ? app.project.createNewSequenceFromClips(ARGS.name, items, __bin(ARGS.bin, true)) : app.project.createNewSequenceFromClips(ARGS.name, items); if (!s) s = __seq(ARGS.name); }
 else { if (!ARGS.__preset) throw new Error('No sequence preset found — pass presetPath (.sqpreset).'); app.enableQE(); qe.project.newSequence(ARGS.name, ARGS.__preset); s = __seq(ARGS.name); }
-if (ARGS.width || ARGS.height || ARGS.fps) { var st = s.getSettings(); if (ARGS.width) st.videoFrameWidth = ARGS.width; if (ARGS.height) st.videoFrameHeight = ARGS.height; if (ARGS.fps) { var t = new Time(); t.seconds = 1 / ARGS.fps; st.videoFrameRate = t; } s.setSettings(st); }
+if (ARGS.width || ARGS.height || ARGS.fps) { var st = s.getSettings(); if (ARGS.width) st.videoFrameWidth = ARGS.width; if (ARGS.height) st.videoFrameHeight = ARGS.height; if (ARGS.fps) { var t = new Time(); t.seconds = 1 / ARGS.fps; st.videoFrameRate = t;
+  // keep the timecode display timebase in step with the new frame rate (a 24p preset left it at 24, so QE timecodes/exports were ~0.8x off)
+  var F = ARGS.fps, DF = { 23.976: 110, 24: 100, 25: 101, 29.97: 103, 30: 104, 50: 105, 59.94: 107, 60: 108 }, key = null; for (var k in DF) if (Math.abs(Number(k) - F) < 0.02) key = k; if (key !== null) st.videoDisplayFormat = DF[key]; }
+s.setSettings(st); }
 app.project.activeSequence = s; var f = s.getSettings(); return { name: s.name, id: s.sequenceID, width: f.videoFrameWidth, height: f.videoFrameHeight, fps: __seqFps(s) };` });
 
 jsxTool({ name: 'pr_duplicateSequence', toolset: 'pr', app: 'pr',
@@ -103,7 +106,9 @@ if (ARGS.inPoint !== undefined) it.setInPoint(ARGS.inPoint, 4); if (ARGS.outPoin
 var tr = __track(s, ARGS.track || 'V1'); var t = __sec(ARGS.time);
 if (ARGS.mode === 'insert') tr.insertClip(it, t); else tr.overwriteClip(it, t);
 if (ARGS.inPoint !== undefined || ARGS.outPoint !== undefined) { try { it.clearInPoint(4); it.clearOutPoint(4); } catch (e) {} }
-var placed = null; for (var i = 0; i < tr.clips.numItems; i++) { var c = tr.clips[i]; if (Math.abs(c.start.seconds - t) < 0.02) placed = __cinfo(c, i); }
+var placed = null, pc = null; for (var i = 0; i < tr.clips.numItems; i++) { var c = tr.clips[i]; if (Math.abs(c.start.seconds - t) < 0.02) { pc = c; placed = __cinfo(c, i); } }
+// Premiere quantises setOutPoint down to the previous frame (1-2 frames short); enforce the exact requested length so cuts stay gap-free.
+if (pc && ARGS.inPoint !== undefined && ARGS.outPoint !== undefined) { var want = t + (ARGS.outPoint - ARGS.inPoint); if (Math.abs(pc.end.seconds - want) > 0.001) { var et = new Time(); et.seconds = want; pc.end = et; for (var j = 0; j < tr.clips.numItems; j++) if (tr.clips[j].nodeId === pc.nodeId) placed = __cinfo(tr.clips[j], j); } }
 return { placed: placed, track: ARGS.track || 'V1' };` });
 
 jsxTool({ name: 'pr_removeClips', toolset: 'pr', app: 'pr', destructive: true,
@@ -224,8 +229,11 @@ jsxTool({ name: 'pr_applyTransition', toolset: 'pr', app: 'pr',
 for (var i = 0; i < ARGS.clips.length; i++) { var ref = ARGS.clips[i], c = __clip(s, ref); var isV = String(ref.track).toUpperCase().charAt(0) === 'V';
   var tn = __def(ARGS.transition, isV ? 'Cross Dissolve' : 'Constant Power'); var tr = isV ? qe.project.getVideoTransitionByName(tn) : qe.project.getAudioTransitionByName(tn); if (!tr) throw new Error('Transition not found: ' + tn);
   var qc = __qeClip(__qeTrack(q, ref.track), c); var pos = __def(ARGS.position, 'end');
-  if (pos === 'start' || pos === 'both') qc.addTransition(tr, false, frames, '0', 0.5, true, true);
-  if (pos === 'end' || pos === 'both') qc.addTransition(tr, true, frames, '0', 0.5, true, true);
+  // QE addTransition's 2nd arg is addToStart: true = clip head, false = clip tail (was inverted, so 'start' landed on the next cut)
+  // two-sided & centred on the cut (single-sided made every transition dip through black); single-sided only at the sequence's first/last edit
+  var single = (pos === 'start' && c.start.seconds < 0.01) || (pos === 'end' && Math.abs(c.end.seconds - s.end / 254016000000) < 0.05);
+  if (pos === 'start' || pos === 'both') qc.addTransition(tr, true, frames, '0', single ? 0 : 0.5, single, true);
+  if (pos === 'end' || pos === 'both') qc.addTransition(tr, false, frames, '0', single ? 1 : 0.5, single, true);
   out.push({ clip: c.name, transition: tn, position: pos, frames: frames }); }
 return out;` });
 
@@ -323,7 +331,11 @@ jsxTool({ name: 'pr_exportFrame', toolset: 'pr', app: 'pr', readOnly: true, time
   input: { time: zTime.optional(), sequence: zSeq, path: z.string().optional() },
   before: (a) => ({ ...a, __path: a.path || tempPng('pr-frame') }),
   jsx: R`var s = __seq(ARGS.sequence); var q = __qeFor(s); var t = ARGS.time !== undefined ? __sec(ARGS.time) : s.getPlayerPosition().seconds;
-var stem = String(ARGS.__path).replace(/\.png$/i, ''); q.exportFramePNG(__tcOf(s, t), stem); return { path: stem + '.png', time: t };`,
+var stem = String(ARGS.__path).replace(/\.png$/i, '');
+// A hand-built timecode string was read by QE on a different timebase (frames came out at ~0.8x the requested time).
+// Move the playhead by ticks and let QE report its own CTI timecode, so the exported frame is exactly the requested one.
+s.setPlayerPosition(String(Math.round(t * 254016000000))); var tc = null; for (var i = 0; i < 10 && !tc; i++) { $.sleep(60); try { tc = __qeFor(s).CTI.timecode; } catch (e) {} }
+q.exportFramePNG(tc || __tcOf(s, t), stem); return { path: stem + '.png', time: t, timecode: tc };`,
   after: async (r: any) => imageResult(r.path, r, 30000),
 });
 
@@ -347,10 +359,16 @@ return { exported: ARGS.path, format: f, result: r };` });
 jsxTool({ name: 'pr_setClipSpeed', toolset: 'pr', app: 'pr',
   description: 'Premiere Pro: change clip speed (percent, 200 = 2x), reverse, maintain audio pitch, ripple.',
   input: { clip: zClipRef, sequence: zSeq, speed: z.number(), reverse: z.boolean().optional(), maintainPitch: z.boolean().optional(), ripple: z.boolean().optional() },
-  jsx: R`var s = __seq(ARGS.sequence); var c = __clip(s, ARGS.clip); var q = __qeFor(s); var qc = __qeClip(__qeTrack(q, ARGS.clip.track), c);
+  jsx: R`var s = __seq(ARGS.sequence); var c = __clip(s, ARGS.clip); var startT = String(c.start.ticks), nid = c.nodeId;
 var ratio = ARGS.speed / 100; var ticks = String(Math.round(Number(c.duration.ticks) / ratio));
+// QE's view of the timeline lags behind DOM edits made in the same batch: refresh until a clip with EXACTLY this start exists (never fall back to the nearest one).
+var qc = null; for (var tr = 0; tr < 20 && !qc; tr++) { if (tr) $.sleep(150); var qt = __qeTrack(__qeFor(s), ARGS.clip.track); for (var i = 0; i < qt.numItems; i++) { var it = qt.getItemAt(i); if (it && String(it.type) === 'Clip' && String(it.start.ticks) === startT) { qc = it; break; } } }
+if (!qc) throw new Error('pr_setClipSpeed: QE could not find the clip at ' + c.start.seconds + 's yet; retry.');
 try { qc.setSpeed(ratio, ticks, !!ARGS.reverse, ARGS.maintainPitch !== false, !!ARGS.ripple); } catch (e) { qc.setSpeed(ratio, '', !!ARGS.reverse, ARGS.maintainPitch !== false, !!ARGS.ripple); }
-return { clip: c.name, speed: ARGS.speed };` });
+// verify on the DOM clip
+var got = null, rev = null; var tk = __track(s, ARGS.clip.track); for (var j = 0; j < tk.clips.numItems; j++) if (tk.clips[j].nodeId === nid) { try { got = tk.clips[j].getSpeed(); rev = tk.clips[j].isSpeedReversed(); } catch (e2) {} }
+if (got !== null && Math.abs(got - ratio) > 0.01) throw new Error('pr_setClipSpeed: speed came out ' + got + 'x instead of ' + ratio + 'x; undo (Ctrl+Z) and retry.');
+return { clip: c.name, speed: ARGS.speed, verifiedSpeed: got, reversed: rev };` });
 
 jsxTool({ name: 'pr_tracks', toolset: 'pr', app: 'pr',
   description: 'Premiere Pro: track operations — add video/audio tracks, mute/unmute, lock/unlock, target/untarget tracks (for inserts/pastes).',
