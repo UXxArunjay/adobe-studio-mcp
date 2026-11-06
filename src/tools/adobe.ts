@@ -10,6 +10,7 @@ import { APPS, AppId, SCRIPT_APPS, IS_WIN, RUNTIME_DIR, findInstalls } from '../
 import { availableTransport, hubHeartbeat, runJsx, runJsxResult } from '../transport/runner.js';
 import { isRunning, launchApp, closeProcess, runningProcesses, sleep } from '../transport/process.js';
 import { readConfig, writeConfig } from '../store.js';
+import { listDialogs, pressDialog, describeDialog } from '../transport/dialogs.js';
 
 const exec = promisify(execFile);
 export const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -196,6 +197,20 @@ tool({ name: 'adobe_config', toolset: 'adobe',
     if (a.set) writeConfig({ ...readConfig(), ...a.set });
     const c = readConfig();
     return { ...c, pixabayKey: c.pixabayKey ? c.pixabayKey.slice(0, 4) + '…' : undefined };
+  } });
+
+tool({ name: 'adobe_dialogs', toolset: 'adobe',
+  description: 'Read and answer popups / modal dialogs in After Effects, Premiere Pro, Photoshop, Illustrator or Media Encoder (Windows) — no computer-use needed. action "list" returns every open popup with its full text and buttons; "press" clicks a button (default OK) on one popup (hwnd from list, or the first popup of `app`). Every Adobe call already watches for popups: plain OK-warnings are dismissed automatically and reported as "POPUP NOTICE", any other popup makes the call return its text right away.',
+  input: { action: z.enum(['list', 'press']).default('list'), app: zAnyApp.optional(), hwnd: z.number().int().optional(), button: z.string().optional().describe('Button label, e.g. OK, Cancel, Don\'t Save (default OK)') },
+  handler: async (a) => {
+    const all = await listDialogs(a.app as AppId | undefined);
+    if (a.action === 'list') return { count: all.length, dialogs: all };
+    const target = a.hwnd ? all.find((d) => d.hwnd === a.hwnd) || { hwnd: a.hwnd } as any : all[0];
+    if (!target) return { pressed: false, note: 'No popup is open.' };
+    const r = await pressDialog(target.hwnd, a.button || 'OK');
+    await sleep(400);
+    const left = await listDialogs(a.app as AppId | undefined);
+    return { ...r, pressedOn: target.title ? describeDialog(target) : target.hwnd, stillOpen: left };
   } });
 
 export { SCRIPT_APPS };

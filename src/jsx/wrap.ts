@@ -75,9 +75,10 @@ var ARGS = ${JSON.stringify(args ?? {})};
 ${undoOpen}
 ${dlgOpen}
 try {
-  var __v = (function () {
-${body}
-  })();
+  // the body is compiled with eval so a syntax error (e.g. a reserved word used as a key) comes back as a normal
+  // error instead of AE's modal "Unable to execute script at line N" popup that blocks every later call
+  var __fn = eval('(function () {\\n' + ${JSON.stringify(body)} + '\\n})');
+  var __v = __fn();
   __res = '{"ok":true,"result":' + __s(__v) + '}';
 } catch (e) {
   __res = '{"ok":false,"error":' + __s(String((e && e.message) || e)) + ',"line":' + __s(e && e.line) + '}';

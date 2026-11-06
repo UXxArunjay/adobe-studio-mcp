@@ -11,6 +11,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { TOOLS, NativeTool, ToolCtx } from './tools/define.js';
 import { enabledToolsets, HUB_MODE } from './config.js';
 import { AdobeError } from './transport/runner.js';
+import { NOTICES } from './transport/dialogs.js';
 import { getCatalog, callUpstream, closeAll, CatalogTool } from './hub/upstream.js';
 
 import './tools/adobe.js';
@@ -90,11 +91,17 @@ async function main() {
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
+    NOTICES.length = 0;
+    const withNotices = (res: any) => {
+      if (NOTICES.length && res && Array.isArray(res.content)) res.content.push({ type: 'text', text: '⚠ POPUP NOTICE:\n' + NOTICES.map((n) => '  • ' + n).join('\n') });
+      NOTICES.length = 0;
+      return res;
+    };
     try {
-      return toContent(await invoke(req.params.name, (req.params.arguments || {}) as Record<string, unknown>)) as any;
+      return withNotices(toContent(await invoke(req.params.name, (req.params.arguments || {}) as Record<string, unknown>))) as any;
     } catch (e: any) {
       const hint = e instanceof AdobeError && e.hint ? `\nHint: ${e.hint}` : '';
-      return { isError: true, content: [{ type: 'text', text: `${e?.message || e}${hint}` }] };
+      return withNotices({ isError: true, content: [{ type: 'text', text: `${e?.message || e}${hint}` }] });
     }
   });
 

@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { APPS, AppId, IS_WIN, IS_MAC, RUNTIME_DIR, DEFAULT_TIMEOUT_MS, findInstalls } from '../config.js';
 import { wrapJsx, parseJsxResult, JsxResult, WrapOptions, asciiSafe } from '../jsx/wrap.js';
 import { isRunning, sleep } from './process.js';
+import { listDialogs, handleDialogs, describeDialog, DialogInfo } from './dialogs.js';
 
 export const HUB_DIR = join(RUNTIME_DIR, 'hub');
 const JOB_DIR = join(RUNTIME_DIR, 'jobs');
@@ -70,6 +71,35 @@ async function waitFile(path: string, timeout: number, isAlive?: () => Promise<b
   return null;
 }
 
+/** Builds the error an agent sees when a popup blocks the app: full popup text + how to answer it. */
+export function dialogError(app: AppId, ds: DialogInfo[]): AdobeError {
+  const first = ds[0];
+  return new AdobeError(`POPUP OPEN in ${APPS[app].label} — the app is blocked until it is answered:\n` + ds.map((d) => '  • ' + describeDialog(d)).join('\n'),
+    `Read it, then answer with adobe_dialogs {"action":"press","hwnd":${first.hwnd},"button":"${first.buttons[0] || 'OK'}"} (or another button), and repeat the call if needed.`);
+}
+
+/**
+ * waitFile + popup watchdog: from ~2.5 s on, checks the app's dialogs every ~3 s. Plain OK-warnings are pressed
+ * automatically (notice attached to the tool result); any other popup aborts the wait right away with its text.
+ */
+async function waitFileWatchDialogs(app: AppId, path: string, timeout: number, isAlive: () => Promise<boolean>, onAbort: () => Promise<unknown>): Promise<string | null> {
+  const start = Date.now();
+  const end = start + timeout;
+  let nextCheck = start + 2500;
+  let n = 0;
+  while (Date.now() < end) {
+    try { const s = await fs.readFile(path, 'utf8'); if (s.length) { await sleep(15); return await fs.readFile(path, 'utf8'); } } catch { /* not yet */ }
+    await sleep(n < 40 ? 50 : 200);
+    if (++n % 25 === 0 && !(await isAlive())) return null;
+    if (IS_WIN && process.env.ADOBE_MCP_DIALOG_WATCH !== '0' && Date.now() >= nextCheck) {
+      const pending = await handleDialogs(app);
+      if (pending.length) { await onAbort(); throw dialogError(app, pending); }
+      nextCheck = Date.now() + 3000;
+    }
+  }
+  return null;
+}
+
 /* ---------- transports ---------- */
 
 async function viaHub(app: AppId, code: string, timeout: number): Promise<string> {
@@ -82,11 +112,15 @@ async function viaHub(app: AppId, code: string, timeout: number): Promise<string
   await fs.rename(tmp, join(dir, 'in', `${id}.json`));
   const outPath = join(dir, 'out', `${id}.json`);
   // alive = app process running (a busy host stops the heartbeat but will still serve the job)
-  const res = await waitFile(outPath, timeout, async () => !!hubHeartbeat(app) || (await isRunning(app)));
+  const res = await waitFileWatchDialogs(app, outPath, timeout, async () => !!hubHeartbeat(app) || (await isRunning(app)),
+    () => fs.rm(join(dir, 'in', `${id}.json`), { force: true }).catch(() => undefined));
   await fs.rm(outPath, { force: true }).catch(() => undefined);
   if (res === null) {
     await fs.rm(join(dir, 'in', `${id}.json`), { force: true }).catch(() => undefined);
-    throw new AdobeError(`${APPS[app].label} did not answer within ${Math.round(timeout / 1000)}s (a modal dialog may be open, or the app is busy).`);
+    const open = await listDialogs(app);
+    if (open.length) throw dialogError(app, open);
+    throw new AdobeError(`${APPS[app].label} did not answer within ${Math.round(timeout / 1000)}s (the app is busy — no popup was found).`,
+      'Call adobe_dialogs {"action":"list"} to re-check for popups; a long script/render may still be running.');
   }
   return res;
 }
@@ -183,6 +217,11 @@ export async function runJsxResult(app: AppId, body: string, args: unknown = {},
       if (!running) throw new AdobeError(`${APPS[app].label} is not running.`, `Start it with adobe_launchApp {"app":"${app}"}.`);
       throw new AdobeError(`${APPS[app].label} is running but the Adobe Studio MCP Hub panel is not connected.`,
         app === 'pr' ? 'Run the installer (scripts/install-windows.ps1) once, restart Premiere, then open Window > Extensions > Adobe Studio MCP Hub if it did not auto-start.' : 'Install the CEP hub (scripts/install-windows.ps1).');
+    }
+    // a stale heartbeat usually means AE/PS/AI is blocked by a popup — answer or report it before queueing more work
+    if (IS_WIN && t === 'hub' && !hubHeartbeat(app) && process.env.ADOBE_MCP_DIALOG_WATCH !== '0') {
+      const pending = await handleDialogs(app);
+      if (pending.length) throw dialogError(app, pending);
     }
     const code = wrapJsx(app, body, args, { ...opts, outFile: '' });
     let raw: string;
