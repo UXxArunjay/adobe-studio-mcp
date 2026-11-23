@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
-export type AppId = 'ae' | 'pr' | 'ps' | 'ai' | 'ame';
+export type AppId = 'ae' | 'pr' | 'ps' | 'ai' | 'au' | 'ame';
 
 export interface AppDef {
   id: AppId;
@@ -27,10 +27,11 @@ export const APPS: Record<AppId, AppDef> = {
   pr: { id: 'pr', label: 'Premiere Pro', folder: 'Adobe Premiere Pro', winExe: 'Adobe Premiere Pro.exe', winProcess: 'Adobe Premiere Pro.exe', bridgeTalk: 'premierepro', cepHost: 'PPRO', envVar: 'ADOBE_MCP_PR_EXE', macProcess: 'Adobe Premiere Pro' },
   ps: { id: 'ps', label: 'Photoshop', folder: 'Adobe Photoshop', winExe: 'Photoshop.exe', winProcess: 'Photoshop.exe', bridgeTalk: 'photoshop', cepHost: 'PHXS', envVar: 'ADOBE_MCP_PS_EXE', macProcess: 'Adobe Photoshop' },
   ai: { id: 'ai', label: 'Illustrator', folder: 'Adobe Illustrator', winExe: 'Support Files\\Contents\\Windows\\Illustrator.exe', winProcess: 'Illustrator.exe', bridgeTalk: 'illustrator', cepHost: 'ILST', envVar: 'ADOBE_MCP_AI_EXE', macProcess: 'Adobe Illustrator' },
+  au: { id: 'au', label: 'Audition', folder: 'Adobe Audition', winExe: 'Adobe Audition.exe', winProcess: 'Adobe Audition.exe', bridgeTalk: 'audition', cepHost: 'AUDT', envVar: 'ADOBE_MCP_AU_EXE', macProcess: 'Adobe Audition' },
   ame: { id: 'ame', label: 'Media Encoder', folder: 'Adobe Media Encoder', winExe: 'Adobe Media Encoder.exe', winProcess: 'Adobe Media Encoder.exe', bridgeTalk: 'ame', cepHost: 'AME', envVar: 'ADOBE_MCP_AME_EXE', macProcess: 'Adobe Media Encoder' },
 };
 
-export const SCRIPT_APPS: AppId[] = ['ae', 'pr', 'ps', 'ai'];
+export const SCRIPT_APPS: AppId[] = ['ae', 'pr', 'ps', 'ai', 'au'];
 
 export const IS_WIN = process.platform === 'win32';
 export const IS_MAC = process.platform === 'darwin';
@@ -69,7 +70,7 @@ export function findInstalls(app: AppId): Install[] {
 
 export function enabledToolsets(): Set<string> {
   const raw = (process.env.ADOBE_MCP_TOOLSETS || 'all').toLowerCase();
-  if (raw === 'all') return new Set(['adobe', 'ae', 'pr', 'ps', 'ai', 'xapp', 'hub']);
+  if (raw === 'all') return new Set(['adobe', 'ae', 'pr', 'ps', 'ai', 'au', 'xapp', 'hub']);
   return new Set(['adobe', ...raw.split(/[,\s]+/).filter(Boolean)]);
 }
 

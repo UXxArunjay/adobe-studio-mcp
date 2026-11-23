@@ -14,8 +14,8 @@ import { listDialogs, pressDialog, describeDialog } from '../transport/dialogs.j
 
 const exec = promisify(execFile);
 export const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const zApp = z.enum(['ae', 'pr', 'ps', 'ai']).describe('ae = After Effects, pr = Premiere Pro, ps = Photoshop, ai = Illustrator');
-const zAnyApp = z.enum(['ae', 'pr', 'ps', 'ai', 'ame']);
+const zApp = z.enum(['ae', 'pr', 'ps', 'ai', 'au']).describe('ae = After Effects, pr = Premiere Pro, ps = Photoshop, ai = Illustrator, au = Audition');
+const zAnyApp = z.enum(['ae', 'pr', 'ps', 'ai', 'au', 'ame']);
 
 tool({ name: 'adobe_status', toolset: 'adobe', readOnly: true,
   description: 'Which Adobe apps are installed (versions, paths), running, and scriptable right now (transport: hub|com|afterfx|osascript), hub panel heartbeats, and next steps. Call first in a session.',
@@ -29,7 +29,7 @@ tool({ name: 'adobe_status', toolset: 'adobe', readOnly: true,
       const t = id === 'ame' ? null : await availableTransport(id);
       const hb = hubHeartbeat(id);
       apps[id] = { label: APPS[id].label, installed: inst.map((i) => ({ year: i.year, path: i.path })), running, transport: t, hub: hb ? { appVersion: hb.appVersion, role: hb.role } : null,
-        hint: !inst.length ? 'not installed' : !running ? `adobe_launchApp {"app":"${id}"}` : !t && id !== 'ame' ? 'running but not connected — run adobe_setup, then restart the app' : 'ready' };
+        hint: !inst.length ? 'not installed' : !running ? `adobe_launchApp {"app":"${id}"}` : !t && id !== 'ame' ? 'running but not connected â€” run adobe_setup, then restart the app' : 'ready' };
     }
     return { platform: process.platform, runtimeDir: RUNTIME_DIR, apps };
   } });
@@ -52,13 +52,13 @@ async function waitScriptable(app: AppId, timeoutMs: number) {
 }
 
 tool({ name: 'adobe_launchApp', toolset: 'adobe',
-  description: 'Open an Adobe app by command — After Effects, Premiere Pro, Photoshop, Illustrator or Media Encoder — optionally with files (projects/images) and a specific version year; waits until it accepts scripts (wait:false to return immediately). No computer-use needed.',
+  description: 'Open an Adobe app by command â€” After Effects, Premiere Pro, Photoshop, Illustrator or Media Encoder â€” optionally with files (projects/images) and a specific version year; waits until it accepts scripts (wait:false to return immediately). No computer-use needed.',
   input: { app: zAnyApp, files: z.array(z.string()).optional(), version: z.number().int().optional().describe('e.g. 2026 when several versions are installed'), wait: z.boolean().optional(), timeoutSec: z.number().optional() },
   handler: async (a) => {
     const r = await launchApp(a.app, a.files || [], a.version);
     if (a.wait === false || a.app === 'ame') return { ...r, waited: false };
     const v = await waitScriptable(a.app, (a.timeoutSec || 240) * 1000);
-    return { ...r, ready: !!v, appVersion: v, transport: await availableTransport(a.app), note: v ? undefined : 'App is starting but not scriptable yet (still loading, a startup dialog is open, or the hub/prefs are not set up — run adobe_setup).' };
+    return { ...r, ready: !!v, appVersion: v, transport: await availableTransport(a.app), note: v ? undefined : 'App is starting but not scriptable yet (still loading, a startup dialog is open, or the hub/prefs are not set up â€” run adobe_setup).' };
   } });
 
 const QUIT: Record<string, string> = {
@@ -66,10 +66,11 @@ const QUIT: Record<string, string> = {
   pr: 'if (ARGS.mode === "save") app.project.save(); app.quit(); return "OK";',
   ps: 'for (var i = app.documents.length - 1; i >= 0; i--) { var d = app.documents[i]; if (!d.saved) { if (ARGS.mode === "save") d.save(); else if (ARGS.mode === "discard") d.close(SaveOptions.DONOTSAVECHANGES); else return "UNSAVED"; } } executeAction(charIDToTypeID("quit"), undefined, DialogModes.NO); return "OK";',
   ai: 'for (var i = app.documents.length - 1; i >= 0; i--) { var d = app.documents[i]; if (!d.saved) { if (ARGS.mode === "save") d.save(); else if (ARGS.mode === "discard") d.close(SaveOptions.DONOTSAVECHANGES); else return "UNSAVED"; } } app.quit(); return "OK";',
+  au: 'for (var i = app.documents.length - 1; i >= 0; i--) { var d = app.documents[i]; if (d.dirty) { if (ARGS.mode === "save" && d.path) { if (d.reflect.name === "MultitrackDocument") var sp = new MultitrackSaveParameter(); sp.copyReferencedDocuments = false; d.saveDocument(sp); else d.saveDocument(); } else if (ARGS.mode === "discard") { d.dirty = false; } else return "UNSAVED"; } } app.quit(); return "OK";',
 };
 
 tool({ name: 'adobe_quitApp', toolset: 'adobe', destructive: true,
-  description: 'Quit an Adobe app by command. mode: "safe" (default — refuses if anything is unsaved), "save" (saves open work first), "discard" (closes without saving), "force" (kills the process — unsaved work is lost).',
+  description: 'Quit an Adobe app by command. mode: "safe" (default â€” refuses if anything is unsaved), "save" (saves open work first), "discard" (closes without saving), "force" (kills the process â€” unsaved work is lost).',
   input: { app: zAnyApp, mode: z.enum(['safe', 'save', 'discard', 'force']).optional() },
   handler: async (a) => {
     const mode = a.mode || 'safe';
@@ -86,20 +87,22 @@ tool({ name: 'adobe_quitApp', toolset: 'adobe', destructive: true,
     return { app: a.app, quit: false, reason: 'Still running (a save dialog may be open). Use mode "force" to kill it.' };
   } });
 
-const EXT_APP: Record<string, AppId> = { '.aep': 'ae', '.aepx': 'ae', '.aet': 'ae', '.prproj': 'pr', '.psd': 'ps', '.psb': 'ps', '.jpg': 'ps', '.jpeg': 'ps', '.png': 'ps', '.tif': 'ps', '.tiff': 'ps', '.webp': 'ps', '.heic': 'ps', '.cr2': 'ps', '.nef': 'ps', '.dng': 'ps', '.ai': 'ai', '.eps': 'ai', '.svg': 'ai', '.pdf': 'ai' };
+const EXT_APP: Record<string, AppId> = { '.aep': 'ae', '.aepx': 'ae', '.aet': 'ae', '.prproj': 'pr', '.psd': 'ps', '.psb': 'ps', '.jpg': 'ps', '.jpeg': 'ps', '.png': 'ps', '.tif': 'ps', '.tiff': 'ps', '.webp': 'ps', '.heic': 'ps', '.cr2': 'ps', '.nef': 'ps', '.dng': 'ps', '.ai': 'ai', '.eps': 'ai', '.svg': 'ai', '.pdf': 'ai',
+  '.sesx': 'au', '.wav': 'au', '.mp3': 'au', '.aif': 'au', '.aiff': 'au', '.flac': 'au', '.ogg': 'au', '.m4a': 'au', '.wma': 'au', '.omf': 'au' };
 const OPEN_JSX: Record<string, string> = {
-  ae: 'var f = __file(ARGS.path); if (app.project.dirty && !ARGS.discardChanges) throw new Error("AE project has unsaved changes — save first or pass discardChanges:true"); if (ARGS.discardChanges) app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES); app.open(f); return app.project.file.fsName;',
+  ae: 'var f = __file(ARGS.path); if (app.project.dirty && !ARGS.discardChanges) throw new Error("AE project has unsaved changes â€” save first or pass discardChanges:true"); if (ARGS.discardChanges) app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES); app.open(f); return app.project.file.fsName;',
   pr: 'app.openDocument(ARGS.path, true, true, true); return app.project.path;',
   ps: 'return app.open(__file(ARGS.path)).name;',
   ai: 'return app.open(__file(ARGS.path)).name;',
+  au: 'var d = app.openDocument(new DocumentOpenParameter(String(ARGS.path))); d.activate(); return d.displayName;',
 };
 
 tool({ name: 'adobe_openFile', toolset: 'adobe',
-  description: 'Open any file in the right Adobe app (.aep→AE, .prproj→Premiere, .psd/.jpg/.png/RAW→Photoshop, .ai/.svg/.eps/.pdf→Illustrator) — launches the app first if needed. app overrides the choice.',
+  description: 'Open any file in the right Adobe app (.aepâ†’AE, .prprojâ†’Premiere, .psd/.jpg/.png/RAWâ†’Photoshop, .ai/.svg/.eps/.pdfâ†’Illustrator) â€” launches the app first if needed. app overrides the choice.',
   input: { path: z.string(), app: zApp.optional(), discardChanges: z.boolean().optional() },
   handler: async (a) => {
     const app = a.app || EXT_APP[extname(a.path).toLowerCase()];
-    if (!app) throw new Error('Cannot tell which app opens ' + a.path + ' — pass app.');
+    if (!app) throw new Error('Cannot tell which app opens ' + a.path + ' â€” pass app.');
     if (!existsSync(a.path)) throw new Error('File not found: ' + a.path);
     if (!(await isRunning(app))) { const r = await launchApp(app, [a.path]); const v = await waitScriptable(app, 240000); return { app, launchedWithFile: true, exe: r.exe, ready: !!v }; }
     const opened = await runJsx(app, OPEN_JSX[app], { path: a.path, discardChanges: a.discardChanges }, { timeoutMs: 600000 });
@@ -107,7 +110,7 @@ tool({ name: 'adobe_openFile', toolset: 'adobe',
   } });
 
 tool({ name: 'adobe_runScript', toolset: 'adobe',
-  description: 'Run raw ExtendScript inside an app — full scripting-DOM access to EVERYTHING the app exposes (AE app.project, Premiere app.project + QE (app.enableQE(); qe.project), Photoshop DOM + Action Manager, Illustrator DOM, BridgeTalk). The code is a function body: `return` a JSON-able value; helpers are preloaded (__comp, __layer, __prop, __seq, __track, __clip, __doc, __hex, __s...). ARGS holds args. Or pass file to $.evalFile a .jsx.',
+  description: 'Run raw ExtendScript inside an app â€” full scripting-DOM access to EVERYTHING the app exposes (AE app.project, Premiere app.project + QE (app.enableQE(); qe.project), Photoshop DOM + Action Manager, Illustrator DOM, BridgeTalk). The code is a function body: `return` a JSON-able value; helpers are preloaded (__comp, __layer, __prop, __seq, __track, __clip, __doc, __hex, __s...). ARGS holds args. Or pass file to $.evalFile a .jsx.',
   input: { app: zApp, code: z.string().optional(), file: z.string().optional(), args: z.record(z.unknown()).optional(), undoGroup: z.string().optional().describe('AE: wrap in an undo group with this name'), timeoutSec: z.number().optional() },
   handler: async (a) => {
     const body = a.file ? `$.global.MCP_ARGS = ARGS; var __r = $.evalFile(__file(${JSON.stringify(a.file)})); return __r;` : a.code;
@@ -116,7 +119,7 @@ tool({ name: 'adobe_runScript', toolset: 'adobe',
   } });
 
 tool({ name: 'adobe_batch', toolset: 'adobe',
-  description: 'Run many tool calls (any native tool: ae_*, pr_*, ps_*, ai_*, xapp_*, media_*, pixabay_*) in one go, in order — fewer round trips. steps:[{tool, input}]. stopOnError default true.',
+  description: 'Run many tool calls (any native tool: ae_*, pr_*, ps_*, ai_*, xapp_*, media_*, pixabay_*) in one go, in order â€” fewer round trips. steps:[{tool, input}]. stopOnError default true.',
   input: { steps: z.array(z.object({ tool: z.string(), input: z.record(z.unknown()).optional() })), stopOnError: z.boolean().optional() },
   handler: async (a, ctx) => {
     const results: unknown[] = [];
@@ -165,7 +168,7 @@ function patchAePrefs(): string[] {
 }
 
 tool({ name: 'adobe_setup', toolset: 'adobe',
-  description: 'One-time setup / repair: installs the Adobe Studio MCP Hub CEP extension (for all 4 apps), enables unsigned CEP extensions (PlayerDebugMode), and turns on After Effects "Allow Scripts to Write Files and Access Network". Restart the apps afterwards.',
+  description: 'One-time setup / repair: installs the Adobe Studio MCP Hub CEP extension (After Effects, Premiere Pro, Photoshop, Illustrator, Audition), enables unsigned CEP extensions (PlayerDebugMode), and turns on After Effects "Allow Scripts to Write Files and Access Network". Restart the apps afterwards.',
   input: { skipAePrefs: z.boolean().optional() },
   handler: async (a) => {
     const res: Record<string, unknown> = {};
@@ -177,7 +180,7 @@ tool({ name: 'adobe_setup', toolset: 'adobe',
     res.cepHubInstalledTo = dst;
     if (!a.skipAePrefs) {
       if (await isRunning('ae')) {
-        // running AE would overwrite the prefs file on quit — set it from inside AE instead (needs no file access)
+        // running AE would overwrite the prefs file on quit â€” set it from inside AE instead (needs no file access)
         const inst = findInstalls('ae')[0];
         const jsx = join(RUNTIME_DIR, 'set-ae-pref.jsx');
         mkdirSync(RUNTIME_DIR, { recursive: true });
@@ -186,7 +189,7 @@ tool({ name: 'adobe_setup', toolset: 'adobe',
         res.aePrefs = 'set inside running After Effects';
       } else res.aePrefs = patchAePrefs();
     }
-    res.next = 'Restart After Effects / Premiere Pro / Photoshop / Illustrator so the hub loads (it starts hidden; Window > Extensions > Adobe Studio MCP Hub shows its status). Then call adobe_status.';
+    res.next = 'Restart After Effects / Premiere Pro / Photoshop / Illustrator / Audition so the hub loads (it starts hidden; Window > Extensions > Adobe Studio MCP Hub shows its status). Then call adobe_status.';
     return res;
   } });
 
@@ -196,11 +199,11 @@ tool({ name: 'adobe_config', toolset: 'adobe',
   handler: async (a) => {
     if (a.set) writeConfig({ ...readConfig(), ...a.set });
     const c = readConfig();
-    return { ...c, pixabayKey: c.pixabayKey ? c.pixabayKey.slice(0, 4) + '…' : undefined };
+    return { ...c, pixabayKey: c.pixabayKey ? c.pixabayKey.slice(0, 4) + 'â€¦' : undefined };
   } });
 
 tool({ name: 'adobe_dialogs', toolset: 'adobe',
-  description: 'Read and answer popups / modal dialogs in After Effects, Premiere Pro, Photoshop, Illustrator or Media Encoder (Windows) — no computer-use needed. action "list" returns every open popup with its full text and buttons; "press" clicks a button (default OK) on one popup (hwnd from list, or the first popup of `app`). Every Adobe call already watches for popups: plain OK-warnings are dismissed automatically and reported as "POPUP NOTICE", any other popup makes the call return its text right away.',
+  description: 'Read and answer popups / modal dialogs in After Effects, Premiere Pro, Photoshop, Illustrator or Media Encoder (Windows) â€” no computer-use needed. action "list" returns every open popup with its full text and buttons; "press" clicks a button (default OK) on one popup (hwnd from list, or the first popup of `app`). Every Adobe call already watches for popups: plain OK-warnings are dismissed automatically and reported as "POPUP NOTICE", any other popup makes the call return its text right away.',
   input: { action: z.enum(['list', 'press']).default('list'), app: zAnyApp.optional(), hwnd: z.number().int().optional(), button: z.string().optional().describe('Button label, e.g. OK, Cancel, Don\'t Save (default OK)') },
   handler: async (a) => {
     const all = await listDialogs(a.app as AppId | undefined);

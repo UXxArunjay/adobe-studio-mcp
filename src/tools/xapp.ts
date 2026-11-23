@@ -1,4 +1,4 @@
-/** Cross-application workflows — the Adobe "work across apps" features: Dynamic Link, BridgeTalk, PSD/AI → AE comps, frames → Photoshop, MOGRT AE → Premiere, render AE → Premiere. */
+/** Cross-application workflows â€” the Adobe "work across apps" features: Dynamic Link, BridgeTalk, PSD/AI â†’ AE comps, frames â†’ Photoshop, MOGRT AE â†’ Premiere, render AE â†’ Premiere. */
 import { z } from 'zod';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -8,13 +8,13 @@ import { runJsx, availableTransport } from '../transport/runner.js';
 import { mediaDir } from '../store.js';
 import { imageResult } from './util.js';
 
-const zApp = z.enum(['ae', 'pr', 'ps', 'ai']);
+const zApp = z.enum(['ae', 'pr', 'ps', 'ai', 'au']);
 const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-/** .mogrt files already exported in this server session (comp|path) — placed again without re-exporting. */
+/** .mogrt files already exported in this server session (comp|path) â€” placed again without re-exporting. */
 const mogrtCache = new Set<string>();
 
 tool({ name: 'xapp_bridgeTalk', toolset: 'xapp',
-  description: 'BridgeTalk: from one running Adobe app, send ExtendScript to another (targets: aftereffects, premierepro, photoshop, illustrator, ame, bridge, indesign... optionally versioned "photoshop-27.0") and wait for its result — Adobe\'s native inter-app messaging. Useful when the target has no direct connection.',
+  description: 'BridgeTalk: from one running Adobe app, send ExtendScript to another (targets: aftereffects, premierepro, photoshop, illustrator, ame, bridge, indesign... optionally versioned "photoshop-27.0") and wait for its result â€” Adobe\'s native inter-app messaging. Useful when the target has no direct connection.',
   input: { from: zApp.optional().describe('sender app (default: first connected)'), target: z.string(), script: z.string().describe('ExtendScript evaluated in the target; its last expression is returned as a string'), timeoutSec: z.number().optional() },
   handler: async (a) => {
     let from: AppId | undefined = a.from;
@@ -43,7 +43,7 @@ return { imported: ok, bin: b.name, items: names, placed: placed };`, { aep, com
   } });
 
 tool({ name: 'xapp_premiereToAE', toolset: 'xapp',
-  description: 'Send a Premiere Pro sequence to After Effects: saves the Premiere project (or exports a trimmed project with just that sequence), then imports it into AE — sequences become AE comps with the clips as layers (like "Replace with After Effects Composition", but scriptable).',
+  description: 'Send a Premiere Pro sequence to After Effects: saves the Premiere project (or exports a trimmed project with just that sequence), then imports it into AE â€” sequences become AE comps with the clips as layers (like "Replace with After Effects Composition", but scriptable).',
   input: { sequence: z.string().optional(), trimmedProject: z.boolean().optional(), openComp: z.boolean().optional() },
   handler: async (a) => {
     const prproj: any = await runJsx('pr', `var s = __seq(ARGS.sequence); if (ARGS.trimmed) { var p = Folder.temp.fsName + '/mcp_' + s.name.replace(/[^\\w-]+/g, '_') + '.prproj'; s.exportAsProject(p); return { path: p, seq: s.name }; } app.project.save(); return { path: app.project.path, seq: s.name };`,
@@ -56,7 +56,7 @@ return { importedFolder: it.name, comps: comps };`, { path: prproj.path, seq: pr
   } });
 
 tool({ name: 'xapp_photoshopToAE', toolset: 'xapp',
-  description: 'Photoshop → After Effects: save the active (or named) PSD, import it into AE as a layered composition (each PS layer = AE layer, layer styles editable), optionally adding it into a target comp — ideal for parallax / paper-cut animations.',
+  description: 'Photoshop â†’ After Effects: save the active (or named) PSD, import it into AE as a layered composition (each PS layer = AE layer, layer styles editable), optionally adding it into a target comp â€” ideal for parallax / paper-cut animations.',
   input: { document: z.string().optional(), psdPath: z.string().optional(), croppedLayers: z.boolean().optional().describe('each layer gets its own size (better for animation)'), targetComp: z.string().optional(), openComp: z.boolean().optional() },
   handler: async (a) => {
     let psd = a.psdPath;
@@ -73,7 +73,7 @@ return { comp: comp ? __compInfo(comp) : null, layers: comp ? comp.numLayers : 0
   } });
 
 tool({ name: 'xapp_illustratorToAE', toolset: 'xapp',
-  description: 'Illustrator → After Effects: save the active AI document (PDF-compatible), import it into AE as a layered comp, and (shapes:true, default) convert every vector layer to native editable AE shape layers.',
+  description: 'Illustrator â†’ After Effects: save the active AI document (PDF-compatible), import it into AE as a layered comp, and (shapes:true, default) convert every vector layer to native editable AE shape layers.',
   input: { document: z.string().optional(), aiPath: z.string().optional(), shapes: z.boolean().optional(), targetComp: z.string().optional() },
   handler: async (a) => {
     let ai = a.aiPath;
@@ -89,7 +89,7 @@ return { comp: comp ? __compInfo(comp) : null, shapeLayersCreated: made, addedTo
   } });
 
 tool({ name: 'xapp_frameToPhotoshop', toolset: 'xapp',
-  description: 'Grab a frame from After Effects (comp) or Premiere (sequence) at a time and open it in Photoshop (new document or as a layer in the active one) — thumbnails, retouching, matte painting.',
+  description: 'Grab a frame from After Effects (comp) or Premiere (sequence) at a time and open it in Photoshop (new document or as a layer in the active one) â€” thumbnails, retouching, matte painting.',
   input: { from: z.enum(['ae', 'pr']), time: z.number().optional(), compositionName: z.string().optional(), sequence: z.string().optional(), asLayer: z.boolean().optional() },
   handler: async (a, ctx) => {
     const r: any = a.from === 'ae' ? await ctx.call('ae_exportFrame', { compositionName: a.compositionName, time: a.time, path: join(mediaDir('frames'), `ae-${stamp()}.png`) })
@@ -101,7 +101,7 @@ tool({ name: 'xapp_frameToPhotoshop', toolset: 'xapp',
   } });
 
 tool({ name: 'xapp_toPremiere', toolset: 'xapp',
-  description: 'Photoshop / Illustrator → Premiere Pro: save the active PS document (PSD or PNG) or export the active AI artboard (PNG), import into a Premiere bin and optionally place on a track at time with a duration.',
+  description: 'Photoshop / Illustrator â†’ Premiere Pro: save the active PS document (PSD or PNG) or export the active AI artboard (PNG), import into a Premiere bin and optionally place on a track at time with a duration.',
   input: { from: z.enum(['ps', 'ai']), format: z.enum(['psd', 'png']).optional(), bin: z.string().optional(), sequence: z.string().optional(), track: z.string().optional(), time: z.number().optional(), duration: z.number().optional() },
   handler: async (a, ctx) => {
     const path = join(mediaDir('handoff'), `${a.from}-${stamp()}.${a.from === 'ai' ? 'png' : a.format || 'png'}`);
@@ -115,7 +115,7 @@ tool({ name: 'xapp_toPremiere', toolset: 'xapp',
   } });
 
 tool({ name: 'xapp_mogrtToPremiere', toolset: 'xapp',
-  description: 'After Effects → Premiere via Motion Graphics template: publish chosen AE properties to Essential Graphics, export the comp as .mogrt, and place it in Premiere with text overrides — editable titles/lower-thirds in the edit.',
+  description: 'After Effects â†’ Premiere via Motion Graphics template: publish chosen AE properties to Essential Graphics, export the comp as .mogrt, and place it in Premiere with text overrides â€” editable titles/lower-thirds in the edit.',
   input: { compositionName: z.string(), templateName: z.string().optional(), properties: z.array(z.object({ layer: z.union([z.string(), z.number()]), property: z.string(), name: z.string().optional() })).optional(),
     sequence: z.string().optional(), track: z.string().optional(), time: z.number().optional(), texts: z.record(z.string()).optional(),
     reexport: z.boolean().optional().describe('force a fresh .mogrt export (after changing the AE comp); otherwise the template exported earlier in this session is reused') },
@@ -135,7 +135,7 @@ tool({ name: 'xapp_mogrtToPremiere', toolset: 'xapp',
   } });
 
 tool({ name: 'xapp_renderAEToPremiere', toolset: 'xapp',
-  description: 'Render an After Effects comp to a file (AE render queue, blocking; e.g. ProRes 4444 / "High Quality with Alpha" / H.264) and import + place the result in Premiere — when Dynamic Link playback is too heavy.',
+  description: 'Render an After Effects comp to a file (AE render queue, blocking; e.g. ProRes 4444 / "High Quality with Alpha" / H.264) and import + place the result in Premiere â€” when Dynamic Link playback is too heavy.',
   input: { compositionName: z.string(), outputModuleTemplate: z.string().optional(), outputPath: z.string().optional(), sequence: z.string().optional(), track: z.string().optional(), time: z.number().optional(), bin: z.string().optional() },
   handler: async (a, ctx) => {
     const out = a.outputPath || join(mediaDir('renders'), `${a.compositionName.replace(/[^\w-]+/g, '_')}-${stamp()}.mov`);
@@ -149,7 +149,7 @@ tool({ name: 'xapp_renderAEToPremiere', toolset: 'xapp',
   } });
 
 tool({ name: 'xapp_preview', toolset: 'xapp', readOnly: true,
-  description: 'Look at what any app currently shows: AE comp frame, Premiere frame at playhead, Photoshop document, or Illustrator artboard — returned as an image for a quick visual self-check.',
+  description: 'Look at what any app currently shows: AE comp frame, Premiere frame at playhead, Photoshop document, or Illustrator artboard â€” returned as an image for a quick visual self-check.',
   input: { app: zApp, time: z.number().optional() },
   handler: async (a, ctx) => {
     if (a.app === 'ae') return ctx.call('ae_exportFrame', { time: a.time });

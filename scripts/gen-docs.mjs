@@ -4,7 +4,7 @@ process.env.ADOBE_MCP_NO_START = '1';
 const { TOOLS } = await import('../dist/tools/define.js');
 await import('../dist/index.js');
 const { LIBRARIES } = await import('../dist/hub/upstream.js');
-const SETS = { adobe: 'Studio, apps, plugins & extensions', ae: 'After Effects', pr: 'Premiere Pro', ps: 'Photoshop', ai: 'Illustrator', xapp: 'Cross-app, YouTube & Pixabay', hub: 'Community catalog gateway' };
+const SETS = { adobe: 'Studio, apps, plugins & extensions', ae: 'After Effects', pr: 'Premiere Pro', ps: 'Photoshop', ai: 'Illustrator', au: 'Audition', xapp: 'Cross-app, YouTube & Pixabay', hub: 'Community catalog gateway' };
 let md = `# Tool reference\n\n${TOOLS.length} native tools + every tool of the bundled community MCPs through the catalog.\n\n`;
 for (const [k, title] of Object.entries(SETS)) {
   const ts = TOOLS.filter((t) => t.toolset === k);

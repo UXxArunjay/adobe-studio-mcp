@@ -12,6 +12,7 @@
       <Host Name="PHXS" Version="[21.0,99.9]" />
       <Host Name="PHSP" Version="[21.0,99.9]" />
       <Host Name="ILST" Version="[24.0,99.9]" />
+      <Host Name="AUDT" Version="[12.0,99.9]" />
     </HostList>
     <LocaleList><Locale Code="All" /></LocaleList>
     <RequiredRuntimeList><RequiredRuntime Name="CSXS" Version="9.0" /></RequiredRuntimeList>

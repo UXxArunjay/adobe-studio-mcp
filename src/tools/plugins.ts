@@ -1,4 +1,4 @@
-/** Plugins, extensions, scripts & presets: discover, use, read/edit, enable/disable, install — plus live CEP-extension control through the hub. */
+/** Plugins, extensions, scripts & presets: discover, use, read/edit, enable/disable, install â€” plus live CEP-extension control through the hub. */
 import { z } from 'zod';
 import { existsSync, readdirSync, statSync, readFileSync, writeFileSync, copyFileSync, renameSync, mkdirSync, cpSync } from 'node:fs';
 import { join, basename, extname, resolve, sep } from 'node:path';
@@ -27,6 +27,8 @@ function roots(): Root[] {
   for (const i of findInstalls('pr')) { add('pr', 'plugin', join(i.root, 'Plug-ins'), ['.prm', '.aex']); add('pr', 'mogrt', join(i.root, 'Essential Graphics'), ['.mogrt']); }
   for (const i of findInstalls('ps')) { add('ps', 'plugin', join(i.root, 'Plug-ins'), ['.8bf', '.8li', '.8be', '.8by', '.8bi', '.8ba', '.plugin']); add('ps', 'script', join(i.root, 'Presets', 'Scripts'), ['.jsx', '.jsxbin', '.js']); add('ps', 'action', join(i.root, 'Presets', 'Actions'), ['.atn']); }
   for (const i of findInstalls('ai')) { add('ai', 'plugin', join(i.root, 'Plug-ins'), ['.aip']); add('ai', 'script', join(i.root, 'Presets'), ['.jsx', '.jsxbin']); }
+  for (const i of findInstalls('au')) { add('au', 'plugin', join(i.root, 'PlugIns'), ['.vst3', '.dll']); add('au', 'script', join(i.root, 'Scripts'), ['.jsx', '.jsxbin']); }
+  add('common', 'plugin', IS_WIN ? 'C:\\Program Files\\Common Files\\VST3' : '/Library/Audio/Plug-Ins/VST3', ['.vst3']);
   add('common', 'plugin', IS_WIN ? 'C:\\Program Files\\Adobe\\Common\\Plug-ins' : '/Library/Application Support/Adobe/Common/Plug-ins', ['.aex', '.prm', '.plugin']);
   // AE user scripts / presets
   add('ae', 'script', join(APPDATA, 'Adobe', 'After Effects'), ['.jsx', '.jsxbin']);
@@ -73,11 +75,11 @@ function uxpInfo(dir: string) {
   try { const j = JSON.parse(readFileSync(m, 'utf8')); return { id: j.id, name: j.name, version: j.version, host: j.host, entrypoints: (j.entrypoints || []).map((e: any) => e.id) }; } catch { return null; }
 }
 
-const APP_HOSTS: Record<string, string[]> = { ae: ['AEFT'], pr: ['PPRO'], ps: ['PHXS', 'PHSP', 'PS'], ai: ['ILST', 'AI'] };
+const APP_HOSTS: Record<string, string[]> = { ae: ['AEFT'], pr: ['PPRO'], ps: ['PHXS', 'PHSP', 'PS'], ai: ['ILST', 'AI'], au: ['AUDT'] };
 
 tool({ name: 'adobe_listPlugins', toolset: 'adobe', readOnly: true,
   description: 'Discover everything installed for the Adobe apps: effect/filter plugins (.aex/.prm/.8bf/.aip), CEP extensions (panels, with bundle ids/hosts/menus), UXP plugins, ExtendScript scripts & ScriptUI panels, AE presets (.ffx), MOGRTs, Photoshop actions. Filter by app, kind, text. For live in-app effect lists also use ae_listEffects / pr_findEffects.',
-  input: { app: z.enum(['ae', 'pr', 'ps', 'ai']).optional(), kind: z.enum(['plugin', 'cep', 'uxp', 'script', 'preset', 'mogrt', 'action']).optional(), filter: z.string().optional(), limit: z.number().int().optional() },
+  input: { app: z.enum(['ae', 'pr', 'ps', 'ai', 'au']).optional(), kind: z.enum(['plugin', 'cep', 'uxp', 'script', 'preset', 'mogrt', 'action']).optional(), filter: z.string().optional(), limit: z.number().int().optional() },
   handler: async (a) => {
     const limit = a.limit || 400, f = (a.filter || '').toLowerCase();
     const out: any[] = [];
@@ -137,8 +139,8 @@ tool({ name: 'adobe_togglePlugin', toolset: 'adobe',
 const UPIA = 'C:\\Program Files\\Common Files\\Adobe\\Adobe Desktop Common\\RemoteComponents\\UPI\\UnifiedPluginInstallerAgent\\UnifiedPluginInstallerAgent.exe';
 
 tool({ name: 'adobe_installPlugin', toolset: 'adobe',
-  description: 'Install an extension/plugin/script/preset from a file or folder: .zxp/.zip/folder CEP extension → user CEP folder; .ccx UXP plugin → Adobe UPIA installer; .jsx/.jsxbin → AE Scripts (or ScriptUI Panels with panel:true); .ffx → AE User Presets; .mogrt → Premiere Essential Graphics; .atn → loaded into Photoshop; .aex/.8bf/.aip/.prm → the app Plug-ins folder (admin may be needed).',
-  input: { path: z.string(), app: z.enum(['ae', 'pr', 'ps', 'ai']).optional(), panel: z.boolean().optional() },
+  description: 'Install an extension/plugin/script/preset from a file or folder: .zxp/.zip/folder CEP extension â†’ user CEP folder; .ccx UXP plugin â†’ Adobe UPIA installer; .jsx/.jsxbin â†’ AE Scripts (or ScriptUI Panels with panel:true); .ffx â†’ AE User Presets; .mogrt â†’ Premiere Essential Graphics; .atn â†’ loaded into Photoshop; .aex/.8bf/.aip/.prm â†’ the app Plug-ins folder (admin may be needed).',
+  input: { path: z.string(), app: z.enum(['ae', 'pr', 'ps', 'ai', 'au']).optional(), panel: z.boolean().optional() },
   handler: async (a) => {
     const p = a.path, ext = extname(p).toLowerCase();
     if (!existsSync(p)) throw new Error('Not found: ' + p);
@@ -153,7 +155,7 @@ tool({ name: 'adobe_installPlugin', toolset: 'adobe',
       return { installed: dst, type: 'CEP extension', info: cepInfo(dst), note: 'Unsigned CEP extensions need PlayerDebugMode (adobe_setup). Restart the app; open it from Window > Extensions.' };
     }
     if (ext === '.ccx') {
-      if (!IS_WIN || !existsSync(UPIA)) throw new Error('Adobe UPIA not found — double-click the .ccx to install via Creative Cloud.');
+      if (!IS_WIN || !existsSync(UPIA)) throw new Error('Adobe UPIA not found â€” double-click the .ccx to install via Creative Cloud.');
       const { stdout } = await exec(UPIA, ['/install', p], { windowsHide: true }); return { installed: p, type: 'UXP plugin', output: stdout };
     }
     const inst = (app: AppId) => { const i = findInstalls(app)[0]; if (!i) throw new Error(app + ' not installed'); return i.root; };
@@ -169,13 +171,13 @@ tool({ name: 'adobe_installPlugin', toolset: 'adobe',
     else throw new Error('Unknown plugin type: ' + ext);
     mkdirSync(dstDir, { recursive: true });
     const dst = join(dstDir, basename(p));
-    try { copyFileSync(p, dst); } catch (e: any) { throw new Error(`Copy to ${dstDir} failed (${e.code}) — Program Files needs administrator rights.`); }
+    try { copyFileSync(p, dst); } catch (e: any) { throw new Error(`Copy to ${dstDir} failed (${e.code}) â€” Program Files needs administrator rights.`); }
     return { installed: dst, note: 'Restart the app to load it.' };
   } });
 
 tool({ name: 'adobe_extensions', toolset: 'adobe',
   description: 'Talk to CEP extensions/panels LIVE inside a running app (through the Adobe Studio MCP Hub): list loaded extensions, open or close a panel by extension id, dispatch a CSEvent to extensions (many panels listen for events), listen for events and read them back, get host environment. Call a panel\'s ExtendScript functions with adobe_runScript.',
-  input: { app: z.enum(['ae', 'pr', 'ps', 'ai']), action: z.enum(['list', 'open', 'close', 'dispatchEvent', 'listen', 'readEvents', 'hostEnv']), id: z.string().optional().describe('extension id (from list / adobe_listPlugins extensionIds)'),
+  input: { app: z.enum(['ae', 'pr', 'ps', 'ai', 'au']), action: z.enum(['list', 'open', 'close', 'dispatchEvent', 'listen', 'readEvents', 'hostEnv']), id: z.string().optional().describe('extension id (from list / adobe_listPlugins extensionIds)'),
     params: z.string().optional(), eventType: z.string().optional(), eventTypes: z.array(z.string()).optional(), data: z.unknown().optional() },
   handler: async (a) => {
     const op = { list: 'listExtensions', open: 'openExtension', close: 'closeExtension', dispatchEvent: 'dispatchEvent', listen: 'listen', readEvents: 'readEvents', hostEnv: 'hostEnv' }[a.action as string]!;

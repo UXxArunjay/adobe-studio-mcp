@@ -13,7 +13,7 @@
   var cep = window.__adobe_cep__;
   var env = {};
   try { env = JSON.parse(cep.getHostEnvironment()); } catch (e) {}
-  var MAP = { AEFT: 'ae', PPRO: 'pr', PHXS: 'ps', PHSP: 'ps', ILST: 'ai' };
+  var MAP = { AEFT: 'ae', PPRO: 'pr', PHXS: 'ps', PHSP: 'ps', ILST: 'ai', AUDT: 'au' };
   var app = MAP[env.appName] || String(env.appName || 'unknown').toLowerCase();
   var base = process.env.ADOBE_MCP_RUNTIME_DIR || path.join(os.homedir(), '.adobe-studio-mcp');
   var dir = path.join(base, 'hub', app), IN = path.join(dir, 'in'), OUT = path.join(dir, 'out'), WORK = path.join(dir, 'work');

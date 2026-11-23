@@ -59,7 +59,15 @@ export async function ensureFfmpeg(): Promise<string> {
   return local;
 }
 
-function run(cmd: string, args: string[], timeoutMs: number): Promise<{ code: number; out: string; err: string }> {
+/** ffprobe next to ffmpeg (bundled build) or on PATH */
+export async function ensureFfprobe(): Promise<string> {
+  const ff = await ensureFfmpeg();
+  const local = join(ff, '..', 'ffprobe' + EXE);
+  if (existsSync(local)) return local;
+  return (await which('ffprobe')) || 'ffprobe';
+}
+
+export function run(cmd: string, args: string[], timeoutMs: number): Promise<{ code: number; out: string; err: string }> {
   return new Promise((resolve) => {
     const p = spawn(cmd, args, { windowsHide: true });
     let out = '', err = '';
@@ -235,11 +243,14 @@ tool({ name: 'pixabay_download', toolset: 'xapp',
   } });
 
 tool({ name: 'media_import', toolset: 'xapp',
-  description: 'Import downloaded/local media into an Adobe app in one call: ae (project + optional add to comp), pr (bin + optional place on track at time, one after another), ps (place as smart objects in the active doc, or open), ai (place into the active doc, or open).',
-  input: { paths: z.array(z.string()), app: z.enum(['ae', 'pr', 'ps', 'ai']), compositionName: z.string().optional(), addToComp: z.boolean().optional(), sequence: z.string().optional(), track: z.string().optional(), time: z.number().optional(), bin: z.string().optional() },
+  description: 'Import downloaded/local media into an Adobe app in one call: ae (project + optional add to comp), pr (bin + optional place on track at time, one after another), ps (place as smart objects in the active doc, or open), ai (place into the active doc, or open), au (Audition: with track → insert as clips into the active multitrack session at time, one after another; without → open as waveform files).',
+  input: { paths: z.array(z.string()), app: z.enum(['ae', 'pr', 'ps', 'ai', 'au']), compositionName: z.string().optional(), addToComp: z.boolean().optional(), sequence: z.string().optional(), track: z.string().optional(), time: z.number().optional(), bin: z.string().optional() },
   handler: async (a, ctx) => {
     const out: unknown[] = [];
-    if (a.app === 'ae') {
+    if (a.app === 'au') {
+      if (a.track) out.push(await ctx.call('au_clips', { action: 'add', track: a.track, files: a.paths, time: a.time ?? 0, sequential: true }));
+      else out.push(await ctx.call('au_openFile', { paths: a.paths }));
+    } else if (a.app === 'ae') {
       if (a.addToComp) for (const p of a.paths) out.push(await ctx.call('ae_importImage', { path: p, compositionName: a.compositionName, folder: a.bin || 'Downloads' }));
       else out.push(await ctx.call('ae_importFile', { paths: a.paths, folder: a.bin || 'Downloads' }));
     } else if (a.app === 'pr') {

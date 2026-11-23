@@ -70,10 +70,10 @@ function Read-Ocr([IntPtr]$h){
   return @($o.Lines | ForEach-Object { $_.Text })
  } catch { return @() }
 }
-$procNames = @('afterfx','adobe premiere pro','photoshop','illustrator','adobe media encoder')
+$procNames = @('afterfx','adobe premiere pro','photoshop','illustrator','adobe media encoder','adobe audition')
 $procs=@{}; Get-Process | Where-Object { $procNames -contains $_.ProcessName.ToLower() } | ForEach-Object { $procs[[uint32]$_.Id]=$_.ProcessName }
 $btnRx='^(OK|Cancel|Yes|No|Save|Don.t Save|Continue|Close|Retry|Ignore|Abort|Replace|Skip|Apply|Discard|Update|Later|Remind Me Later|Not Now|Locate|Done)$'
-$titleRx='^(After Effects|Adobe After Effects|Premiere Pro|Adobe Premiere Pro|Photoshop|Adobe Photoshop|Illustrator|Adobe Illustrator|Media Encoder|Adobe Media Encoder|Warning|Error|Alert|Script Alert|ExtendScript)'
+$titleRx='^(After Effects|Adobe After Effects|Premiere Pro|Adobe Premiere Pro|Photoshop|Adobe Photoshop|Illustrator|Adobe Illustrator|Media Encoder|Adobe Media Encoder|Audition|Adobe Audition|New Multitrack Session|New Audio File|Export|Warning|Error|Alert|Script Alert|ExtendScript)'
 function Get-Dialogs {
  $out=@()
  foreach($h in [AsmW]::Top()){

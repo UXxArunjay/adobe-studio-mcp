@@ -2,7 +2,7 @@ import { z, ZodRawShape } from 'zod';
 import type { AppId } from '../config.js';
 import { runJsx } from '../transport/runner.js';
 
-export type Toolset = 'adobe' | 'ae' | 'pr' | 'ps' | 'ai' | 'xapp' | 'hub';
+export type Toolset = 'adobe' | 'ae' | 'pr' | 'ps' | 'ai' | 'au' | 'xapp' | 'hub';
 
 export interface ToolCtx { call: (name: string, args: Record<string, unknown>) => Promise<unknown> }
 

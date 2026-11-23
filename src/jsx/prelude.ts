@@ -1,5 +1,6 @@
 /** ExtendScript (ES3) helper libraries injected before every tool body, per app. */
 import type { AppId } from '../config.js';
+import { AU_PRELUDE_BODY } from './prelude-au.js';
 
 const COMMON = `
 function __hex(h) {
@@ -359,6 +360,8 @@ function __docInfo(d) { return { name: d.name, width: d.width.as('px'), height: 
 var __oldUnits; try { __oldUnits = app.preferences.rulerUnits; app.preferences.rulerUnits = Units.PIXELS; } catch (__pu) {}
 `;
 
+const AU_PRELUDE = COMMON + AU_PRELUDE_BODY;
+
 const AI = COMMON + `
 function __doc(name) {
   if (!app.documents.length) throw new Error('No open Illustrator document.');
@@ -390,4 +393,4 @@ function __pt(doc, x, y, ab) {
 function __iteminfo(it) { var o = { name: it.name, type: it.typename, layer: (function () { try { return it.layer.name; } catch (e) { return ''; } })(), bounds: it.geometricBounds, hidden: it.hidden, locked: it.locked }; try { o.opacity = it.opacity; } catch (e) {} try { if (it.typename === 'TextFrame') o.text = it.contents; } catch (e2) {} return o; }
 `;
 
-export const PRELUDE: Record<AppId, string> = { ae: AE, pr: PR, ps: PS, ai: AI, ame: COMMON };
+export const PRELUDE: Record<AppId, string> = { ae: AE, pr: PR, ps: PS, ai: AI, au: AU_PRELUDE, ame: COMMON };

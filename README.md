@@ -1,8 +1,9 @@
 # Adobe Studio MCP
 
-**One free, open-source MCP server that lets Claude (or any MCP client) drive After Effects, Premiere Pro, Photoshop and Illustrator — together.**
+**One free, open-source MCP server that lets Claude (or any MCP client) drive After Effects, Premiere Pro, Photoshop, Illustrator and Audition — together.**
 
-- **182 native tools** — full Filmit-style motion-graphics & editing toolset (same tool names, `ae_` / `pr_` prefix), plus advanced extras: 3D cameras & lights, camera moves, text animators, expression rigs, markers, time-remap, MOGRT / Essential Graphics, render queue & **Adobe Media Encoder**, Premiere auto-reframe, scene-edit detection, speed, captions, XML/AAF export…
+- **205 native tools** — full Filmit-style motion-graphics & editing toolset (same tool names, `ae_` / `pr_` prefix), plus advanced extras: 3D cameras & lights, camera moves, text animators, expression rigs, markers, time-remap, MOGRT / Essential Graphics, render queue & **Adobe Media Encoder**, Premiere auto-reframe, scene-edit detection, speed, captions, XML/AAF export…
+- **Adobe Audition, fully scriptable** — sessions without dialogs, tracks/buses (mono, stereo, 5.1), clips, markers, transport, every menu command, favorites, preferences; a built-in **SESX engine** for what Audition's DOM cannot do: volume, pan, mute/solo, bus routing, clip gain, trims, splits, fades, volume/pan automation, effects racks with any built-in effect or VST/VST3 plug-in (presets, parameters, exact plug-in states) and your own **Effects Rack presets**; mixdown/export in any format (stereo or 5.1), offline effect rendering of files, EBU R128 loudness analysis & exact normalization (e.g. −14 LUFS / −1 dBTP), Audition → Premiere.
 - **+501 community tools** from the 5 best Adobe MCPs on GitHub, bundled and served through the same connection (searchable catalog, or flat).
 - **Cross-app workflows** — Dynamic Link (AE comps → Premiere, live), Premiere → AE, PSD → layered AE comp, Illustrator → AE shape layers, frames → Photoshop, PS/AI → Premiere, AE → MOGRT → Premiere, BridgeTalk messaging between apps.
 - **Launch / open / quit apps by command** — no computer-use or clicking.
@@ -22,7 +23,7 @@ cd adobe-studio-mcp
 powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
 ```
 
-The installer builds the server and the 5 bundled MCPs, installs the **Adobe Studio MCP Hub** (one hidden CEP extension that loads in all four apps), enables unsigned CEP extensions, turns on After Effects *Allow Scripts to Write Files and Access Network*, and adds `adobe-studio` to Claude Desktop (backup kept). Restart the Adobe apps and Claude Desktop, then ask: **"adobe_status"**.
+The installer builds the server and the 5 bundled MCPs, installs the **Adobe Studio MCP Hub** (one hidden CEP extension that loads in all five apps), enables unsigned CEP extensions, turns on After Effects *Allow Scripts to Write Files and Access Network*, and adds `adobe-studio` to Claude Desktop (backup kept). Restart the Adobe apps and Claude Desktop, then ask: **"adobe_status"**.
 
 macOS: `bash scripts/install-macos.sh`.
 
@@ -42,6 +43,7 @@ Claude Code: `claude mcp add adobe-studio -- node C:/path/to/adobe-studio-mcp/di
 | Premiere Pro | Hub (CEP) | Hub (auto-starts; Window › Extensions › Adobe Studio MCP Hub shows status) |
 | Photoshop | Hub (CEP) → Windows COM | nothing |
 | Illustrator | Hub (CEP) → Windows COM | nothing |
+| Audition | Hub (CEP) | Hub (auto-starts) — mixing/effects also work offline on `.sesx` files |
 
 Every call is serialized per app, wrapped in an undo group (AE), Unicode-safe (Hindi etc.), and returns JSON or an image (`*_exportFrame`, `ps_preview`, `xapp_preview`) so the model can check its own work.
 
@@ -54,7 +56,7 @@ Every call is serialized per app, wrapped in an undo group (AE), Unicode-safe (H
 | `ADOBE_MCP_TIMEOUT_MS` | `120000` | Default per-call timeout |
 | `PIXABAY_API_KEY` | – | Pixabay key (or `adobe_config {"set":{"pixabayKey":"…"}}`) — free at pixabay.com/api/docs |
 | `ADOBE_MCP_MEDIA_DIR` | `~/.adobe-studio-mcp/media` | Where downloads go |
-| `ADOBE_MCP_AE_EXE` / `_PR_EXE` / `_PS_EXE` / `_AI_EXE` | auto | Custom app paths |
+| `ADOBE_MCP_AE_EXE` / `_PR_EXE` / `_PS_EXE` / `_AI_EXE` / `_AU_EXE` | auto | Custom app paths |
 
 ## Tools
 
@@ -65,7 +67,8 @@ Full list with descriptions: **[docs/TOOLS.md](docs/TOOLS.md)**. Highlights:
 - **After Effects** (72): comps, text/shape/solid/null/adjustment/camera/light layers, masks, effects, keyframes & easing, expressions & templates, track mattes, parenting, precompose, 3D, camera moves, markers, time remap, render queue, AME, MOGRT…
 - **Premiere Pro** (39): project/sequence state, place/insert, razor, ripple range removal, trim, move, speed, Motion/Opacity/Volume keyframes, effects & transitions, MOGRT titles, captions, markers, tracks, export via AME, XML, auto-reframe, scene detection, `pr_applyEditPlan`
 - **Photoshop** (22) / **Illustrator** (16): documents, layers, text, shapes, filters, adjustment layers, selections (Select Subject/Sky), Remove Background, content-aware fill, layer styles, smart objects, artboards, image trace, exports, Action Manager / menu commands
-- **Cross-app** (16): `xapp_aeCompToPremiere`, `xapp_premiereToAE`, `xapp_photoshopToAE`, `xapp_illustratorToAE`, `xapp_frameToPhotoshop`, `xapp_toPremiere`, `xapp_mogrtToPremiere`, `xapp_renderAEToPremiere`, `xapp_bridgeTalk`, `xapp_preview`, `media_youtubeDownload`, `media_info`, `media_tools`, `media_import`, `pixabay_search`, `pixabay_download`
+- **Audition** (22): `au_getState`, `au_openFile`, `au_newSession`, `au_newAudioFile`, `au_saveDocument`, `au_closeDocument`, `au_tracks`, `au_clips`, `au_markers`, `au_transport`, `au_favorites`, `au_command` (all ~610 menu commands), `au_preferences`, `au_panner`, `au_mix` (volume / pan / routing / fades / trims / splits / effects / rack presets / automation), `au_sessionInfo`, `au_effects` (built-ins + installed VST/VST3 + your racks), `au_mixdown`, `au_exportSession` (session copy, template, OMF, FCP XML), `au_processFile` (render files through any effect chain), `au_loudness`, `au_dictionary`
+- **Cross-app** (17): `xapp_auditionToPremiere`, `xapp_aeCompToPremiere`, `xapp_premiereToAE`, `xapp_photoshopToAE`, `xapp_illustratorToAE`, `xapp_frameToPhotoshop`, `xapp_toPremiere`, `xapp_mogrtToPremiere`, `xapp_renderAEToPremiere`, `xapp_bridgeTalk`, `xapp_preview`, `media_youtubeDownload`, `media_info`, `media_tools`, `media_import`, `pixabay_search`, `pixabay_download`
 - **Catalog**: `adobe_catalog_search` → `adobe_catalog_describe` → `adobe_catalog_call` over ae1 / ae2 / pr1 / ps1 / ai1
 
 ## Bundled community MCPs

@@ -12,5 +12,5 @@ if (-not $NoUpstream) { Write-Host '== Building bundled community MCPs' -Foregro
 Write-Host '== Configuring Adobe apps' -ForegroundColor Cyan
 if ($NoClaude) { node scripts/setup-apps.mjs } else { node scripts/setup-apps.mjs --claude }
 Write-Host ''
-Write-Host 'Done. Restart After Effects / Premiere Pro / Photoshop / Illustrator and Claude Desktop.' -ForegroundColor Green
+Write-Host 'Done. Restart After Effects / Premiere Pro / Photoshop / Illustrator / Audition and Claude Desktop.' -ForegroundColor Green
 Write-Host 'Then ask Claude: "adobe_status"'
