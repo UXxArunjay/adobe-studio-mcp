@@ -17,9 +17,12 @@ import { getCatalog, callUpstream, closeAll, CatalogTool } from './hub/upstream.
 import './tools/adobe.js';
 import './tools/ae-core.js';
 import './tools/ae-advanced.js';
+import './tools/ae-templates.js';
 import './tools/pr.js';
 import './tools/ps.js';
 import './tools/ai.js';
+import './tools/au.js';
+import './tools/au-session.js';
 import './tools/xapp.js';
 import './tools/plugins.js';
 import './tools/media.js';
@@ -27,7 +30,7 @@ import './tools/hub.js';
 
 export const VERSION = '1.0.0';
 
-const INSTRUCTIONS = `Adobe Studio MCP controls After Effects (ae_*), Premiere Pro (pr_*), Photoshop (ps_*), Illustrator (ai_*), cross-app workflows (xapp_*), media download (media_*, pixabay_*), plugins/extensions (adobe_*Plugin*, adobe_extensions) and ~550 more community tools via adobe_catalog_search/call.
+const INSTRUCTIONS = `Adobe Studio MCP controls After Effects (ae_*), Premiere Pro (pr_*), Photoshop (ps_*), Illustrator (ai_*), Audition (au_*), cross-app workflows (xapp_*), media download (media_*, pixabay_*), plugins/extensions (adobe_*Plugin*, adobe_extensions) and ~550 more community tools via adobe_catalog_search/call.
 Work like a careful assistant editor:
 1. Start with adobe_status. Launch apps with adobe_launchApp (no UI automation needed).
 2. Read state before editing: ae_getCompState / pr_getSequenceState / ps_getState / ai_getState. Clip/layer indexes change after edits — re-read.
@@ -35,7 +38,8 @@ Work like a careful assistant editor:
 4. Batch many steps with ae_setKeyframes, adobe_batch or pr_applyEditPlan. After visual changes, check with ae_exportFrame / pr_exportFrame / ps_preview / xapp_preview.
 5. Every AE tool call is one undo group (Ctrl+Z). Save with ae_saveProject / pr_saveProject (backup:true keeps a copy).
 6. Anything not covered by a dedicated tool: adobe_runScript (raw ExtendScript), ae_executeCommand, ps_actionManager, ai_executeMenuCommand, or the catalog.
-7. Render via Adobe Media Encoder: ae_queueInAME, pr_export.`;
+7. Render via Adobe Media Encoder: ae_queueInAME, pr_export.
+8. Audition: au_getState first. Live DOM tools (au_tracks, au_clips, au_markers, au_transport, au_command…) edit the open session directly; au_mix edits volume/pan/routing/fades/effects/automation through the .sesx (the session is saved, closed, edited and reopened). Render with au_mixdown / au_processFile; check levels with au_loudness.`;
 
 const sets = enabledToolsets();
 const native = new Map<string, NativeTool>();
