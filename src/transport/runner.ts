@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { APPS, AppId, IS_WIN, IS_MAC, RUNTIME_DIR, DEFAULT_TIMEOUT_MS, findInstalls } from '../config.js';
 import { wrapJsx, parseJsxResult, JsxResult, WrapOptions, asciiSafe } from '../jsx/wrap.js';
 import { isRunning, sleep } from './process.js';
-import { listDialogs, handleDialogs, describeDialog, DialogInfo } from './dialogs.js';
+import { listDialogs, handleDialogs, describeDialog, DialogInfo, isTransientProgress } from './dialogs.js';
 
 export const HUB_DIR = join(RUNTIME_DIR, 'hub');
 const JOB_DIR = join(RUNTIME_DIR, 'jobs');
@@ -117,7 +117,7 @@ async function viaHub(app: AppId, code: string, timeout: number): Promise<string
   await fs.rm(outPath, { force: true }).catch(() => undefined);
   if (res === null) {
     await fs.rm(join(dir, 'in', `${id}.json`), { force: true }).catch(() => undefined);
-    const open = await listDialogs(app);
+    const open = (await listDialogs(app)).filter((d) => !isTransientProgress(d));
     if (open.length) throw dialogError(app, open);
     throw new AdobeError(`${APPS[app].label} did not answer within ${Math.round(timeout / 1000)}s (the app is busy — no popup was found).`,
       'Call adobe_dialogs {"action":"list"} to re-check for popups; a long script/render may still be running.');
