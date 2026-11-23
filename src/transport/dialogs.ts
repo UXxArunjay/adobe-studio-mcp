@@ -157,6 +157,14 @@ export function isSafeToAutoDismiss(d: DialogInfo): boolean {
   return btns.every((b) => b === 'ok' || b === 'close');
 }
 
+/** AE/PR progress windows ("Open Project" 37% complete, "Save Project", import/render progress) close by themselves â€” never treat them as blocking popups */
+export function isTransientProgress(d: DialogInfo): boolean {
+  const btns = d.buttons.map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const onlyCancel = btns.length === 0 || btns.every((b) => b === 'cancel' || b === 'stop');
+  if (/estimated time remaining|% complete|opening project|saving project|reducing project|collecting files|importing|rendering|loading/i.test(d.text)) return onlyCancel;
+  return onlyCancel && /^(open|save|saving|opening|import|importing|reduce|collect|render|rendering|progress|loading)\b/i.test(d.title.trim()) && !/\?/.test(d.text);
+}
+
 export function describeDialog(d: DialogInfo): string {
   const text = d.text.replace(/\s+/g, ' ').trim();
   return `[${d.process}] "${d.title}"${text ? `: ${text}` : ''}${d.buttons.length ? ` — buttons: ${d.buttons.join(' / ')}` : ''} (hwnd ${d.hwnd})`;
@@ -170,6 +178,7 @@ export async function handleDialogs(app: AppId): Promise<DialogInfo[]> {
   const ds = await listDialogs(app);
   const pending: DialogInfo[] = [];
   for (const d of ds) {
+    if (isTransientProgress(d)) continue; // progress window: keep waiting, the job is still running
     if (isSafeToAutoDismiss(d) && process.env.ADOBE_MCP_AUTO_DISMISS !== '0') {
       const btn = d.buttons.find((x) => /^ok$/i.test(x)) || d.buttons.find((x) => /^close$/i.test(x)) || 'OK';
       let how = 'failed';
